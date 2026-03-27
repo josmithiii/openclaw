@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { MANIFEST_KEY } from "../compat/legacy-names.js";
-import { openBoundaryFileSync } from "../infra/boundary-file-read.js";
+import { matchBoundaryFileOpenFailure, openBoundaryFileSync } from "../infra/boundary-file-read.js";
 import { isRecord } from "../utils.js";
 import type { PluginConfigUiHint, PluginKind } from "./types.js";
 
@@ -15,6 +15,11 @@ export type PluginManifest = {
   kind?: PluginKind;
   channels?: string[];
   providers?: string[];
+  speechProviders?: string[];
+  mediaUnderstandingProviders?: string[];
+  imageGenerationProviders?: string[];
+  /** Cheap startup activation lookup for plugin-owned CLI inference backends. */
+  cliBackends?: string[];
   /** Cheap provider-auth env lookup without booting plugin runtime. */
   providerAuthEnvVars?: Record<string, string[]>;
   /**
@@ -159,14 +164,18 @@ export function loadPluginManifest(
     rejectHardlinks,
   });
   if (!opened.ok) {
-    if (opened.reason === "path") {
-      return { ok: false, error: `plugin manifest not found: ${manifestPath}`, manifestPath };
-    }
-    return {
-      ok: false,
-      error: `unsafe plugin manifest path: ${manifestPath} (${opened.reason})`,
-      manifestPath,
-    };
+    return matchBoundaryFileOpenFailure(opened, {
+      path: () => ({
+        ok: false,
+        error: `plugin manifest not found: ${manifestPath}`,
+        manifestPath,
+      }),
+      fallback: (failure) => ({
+        ok: false,
+        error: `unsafe plugin manifest path: ${manifestPath} (${failure.reason})`,
+        manifestPath,
+      }),
+    });
   }
   let raw: unknown;
   try {
@@ -199,6 +208,10 @@ export function loadPluginManifest(
   const version = typeof raw.version === "string" ? raw.version.trim() : undefined;
   const channels = normalizeStringList(raw.channels);
   const providers = normalizeStringList(raw.providers);
+  const speechProviders = normalizeStringList(raw.speechProviders);
+  const mediaUnderstandingProviders = normalizeStringList(raw.mediaUnderstandingProviders);
+  const imageGenerationProviders = normalizeStringList(raw.imageGenerationProviders);
+  const cliBackends = normalizeStringList(raw.cliBackends);
   const providerAuthEnvVars = normalizeStringListRecord(raw.providerAuthEnvVars);
   const providerAuthChoices = normalizeProviderAuthChoices(raw.providerAuthChoices);
   const skills = normalizeStringList(raw.skills);
@@ -217,6 +230,10 @@ export function loadPluginManifest(
       kind,
       channels,
       providers,
+      speechProviders,
+      mediaUnderstandingProviders,
+      imageGenerationProviders,
+      cliBackends,
       providerAuthEnvVars,
       providerAuthChoices,
       skills,
@@ -255,6 +272,7 @@ export type PluginPackageInstall = {
   npmSpec?: string;
   localPath?: string;
   defaultChoice?: "npm" | "local";
+  minHostVersion?: string;
 };
 
 export type OpenClawPackageStartup = {

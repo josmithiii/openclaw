@@ -3,10 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, expect, vi, type Mock } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
-import type { MemoryIndexManager, MemorySearchManager } from "./index.js";
+import type { MemoryIndexManager } from "../plugin-sdk/memory-core.js";
 
 type EmbeddingTestMocksModule = typeof import("./embedding.test-mocks.js");
-type MemoryIndexModule = typeof import("./index.js");
+type MemoryIndexModule = typeof import("../plugin-sdk/memory-core.js");
+type MemorySearchManagerHandle = Awaited<
+  ReturnType<MemoryIndexModule["getMemorySearchManager"]>
+>["manager"];
 
 export function installEmbeddingManagerFixture(opts: {
   fixturePrefix: string;
@@ -43,7 +46,7 @@ export function installEmbeddingManagerFixture(opts: {
   };
 
   const requireIndexManager = (
-    manager: MemorySearchManager | null,
+    manager: MemorySearchManagerHandle,
     name: string,
   ): MemoryIndexManager => {
     if (!manager) {
@@ -61,7 +64,7 @@ export function installEmbeddingManagerFixture(opts: {
     const embeddingMocks = await import("./embedding.test-mocks.js");
     embedBatch = embeddingMocks.getEmbedBatchMock();
     resetEmbeddingMocks = embeddingMocks.resetEmbeddingMocks;
-    ({ getMemorySearchManager } = await import("./index.js"));
+    ({ getMemorySearchManager } = await import("../plugin-sdk/memory-core.js"));
     fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), opts.fixturePrefix));
     workspaceDir = path.join(fixtureRoot, "workspace");
     memoryDir = path.join(workspaceDir, "memory");
