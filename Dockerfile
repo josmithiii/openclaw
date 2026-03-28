@@ -183,6 +183,19 @@ RUN --mount=type=cache,id=openclaw-bookworm-apt-cache,target=/var/cache/apt,shar
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $OPENCLAW_DOCKER_APT_PACKAGES; \
     fi
 
+# Optionally install Go (official tarball).
+# Build with: docker build --build-arg OPENCLAW_INSTALL_GO=1 ...
+ARG OPENCLAW_INSTALL_GO=""
+ARG OPENCLAW_GO_VERSION="1.24.1"
+RUN if [ -n "$OPENCLAW_INSTALL_GO" ]; then \
+      ARCH="$(dpkg --print-architecture)" && \
+      curl -fsSL "https://go.dev/dl/go${OPENCLAW_GO_VERSION}.linux-${ARCH}.tar.gz" \
+        -o /tmp/go.tar.gz && \
+      tar -C /usr/local -xzf /tmp/go.tar.gz && \
+      rm /tmp/go.tar.gz; \
+    fi
+ENV PATH="/usr/local/go/bin:${PATH}"
+
 # Optionally install Chromium and Xvfb for browser automation.
 # Build with: docker build --build-arg OPENCLAW_INSTALL_BROWSER=1 ...
 # Adds ~300MB but eliminates the 60-90s Playwright install on every container start.
