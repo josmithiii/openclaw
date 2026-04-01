@@ -8,6 +8,12 @@ function isGemini31Model(modelId: string): boolean {
   return normalized.includes("gemini-3.1-pro") || normalized.includes("gemini-3.1-flash");
 }
 
+// Gemini 2.5 Pro only works in thinking mode; a budget of 0 is rejected by the API.
+function isThinkingRequiredModel(modelId: string): boolean {
+  const normalized = modelId.toLowerCase();
+  return normalized.includes("gemini-2.5-pro");
+}
+
 function mapThinkLevelToGoogleThinkingLevel(
   thinkingLevel: ThinkLevel,
 ): "MINIMAL" | "LOW" | "MEDIUM" | "HIGH" | undefined {
@@ -47,6 +53,19 @@ export function sanitizeGoogleThinkingPayload(params: {
   }
   const thinkingConfigObj = thinkingConfig as Record<string, unknown>;
   const thinkingBudget = thinkingConfigObj.thinkingBudget;
+
+  // Gemini 2.5 Pro only works in thinking mode; a budget of 0 is invalid.
+  // Remove the zero budget so the API uses its default thinking behavior.
+  if (
+    typeof thinkingBudget === "number" &&
+    thinkingBudget === 0 &&
+    typeof params.modelId === "string" &&
+    isThinkingRequiredModel(params.modelId)
+  ) {
+    delete thinkingConfigObj.thinkingBudget;
+    return;
+  }
+
   if (typeof thinkingBudget !== "number" || thinkingBudget >= 0) {
     return;
   }
