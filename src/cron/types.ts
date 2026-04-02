@@ -100,10 +100,6 @@ type CronAgentTurnPayloadFields = {
   lightContext?: boolean;
   /** Optional tool allow-list; when set, only these tools are sent to the model. */
   toolsAllow?: string[];
-  deliver?: boolean;
-  channel?: CronMessageChannel;
-  to?: string;
-  bestEffortDeliver?: boolean;
 };
 
 type CronAgentTurnPayload = {
@@ -112,7 +108,9 @@ type CronAgentTurnPayload = {
 
 type CronAgentTurnPayloadPatch = {
   kind: "agentTurn";
-} & Partial<CronAgentTurnPayloadFields>;
+} & Partial<Omit<CronAgentTurnPayloadFields, "toolsAllow">> & {
+    toolsAllow?: string[] | null;
+  };
 export type CronJobState = {
   nextRunAtMs?: number;
   runningAtMs?: number;
