@@ -1,4 +1,5 @@
 const http = require("http");
+const fs = require("fs");
 const LISTEN_PORT = parseInt(process.argv[2] || "11435", 10);
 const OLLAMA_PORT = parseInt(process.argv[3] || "11434", 10);
 const OLLAMA_HOST = "127.0.0.1";
@@ -20,6 +21,11 @@ const server = http.createServer((req, res) => {
           `  model=${parsed.model} think=${parsed.think} stream=${parsed.stream} num_ctx=${parsed.options?.num_ctx}`,
         );
         console.log(`  messages(${parsed.messages?.length}): ${msgSizes.join(", ")}`);
+        // Dump system prompt to file for inspection
+        const sysMsg = (parsed.messages || []).find((m) => m.role === "system");
+        if (sysMsg) {
+          fs.writeFileSync("/tmp/ollama-system-prompt.txt", sysMsg.content);
+        }
         parsed.think = false;
         body = Buffer.from(JSON.stringify(parsed));
       } catch (e) {
