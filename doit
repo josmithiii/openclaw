@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# start Ollama + think:false proxy:
+./ollama_serve.bash
+
+# Start BBBot in Docker:
+dcoc up -d
+
+# Start BBBot in direct terminal chat (no system prompt overhead)
+# ollama run gemma4:31b 
+
+# Switch tool profiles:
+# ./bbbot_profile.bash [messaging|coding]
+
+# Shut down
+# ollama stop gemma4:31b && killall ollama
+
+echo 'Hello BBBot - Please tell me your latest status' | pbcopy
+docker compose --env-file ~/.openclaw/.env exec openclaw-gateway node dist/index.js tui
+
+# List all
+docker ps
+
+# Pause all
+#   docker pause $(docker ps -q)
+# Resume all
+#   docker unpause $(docker ps -q)
