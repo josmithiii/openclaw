@@ -47,7 +47,9 @@ export function handleAgentEnd(ctx: EmbeddedPiSubscribeContext) {
       model: lastAssistant.model,
     });
     const rawError = lastAssistant.errorMessage?.trim();
-    const failoverReason = classifyFailoverReason(rawError ?? "");
+    const failoverReason = classifyFailoverReason(rawError ?? "", {
+      provider: lastAssistant.provider,
+    });
     const errorText = (friendlyError || lastAssistant.errorMessage || "LLM request failed.").trim();
     const observedError = buildApiErrorObservationFields(rawError);
     const safeErrorText =
@@ -136,20 +138,13 @@ export function handleAgentEnd(ctx: EmbeddedPiSubscribeContext) {
   };
 
   const flushBlockReplyBufferResult = ctx.flushBlockReplyBuffer();
+  finalizeAgentEnd();
   if (isPromiseLike<void>(flushBlockReplyBufferResult)) {
-    return flushBlockReplyBufferResult
-      .then(() => flushPendingMediaAndChannel())
-      .finally(() => {
-        finalizeAgentEnd();
-      });
+    return flushBlockReplyBufferResult.then(() => flushPendingMediaAndChannel());
   }
 
   const flushPendingMediaAndChannelResult = flushPendingMediaAndChannel();
   if (isPromiseLike<void>(flushPendingMediaAndChannelResult)) {
-    return flushPendingMediaAndChannelResult.finally(() => {
-      finalizeAgentEnd();
-    });
+    return flushPendingMediaAndChannelResult;
   }
-
-  finalizeAgentEnd();
 }
