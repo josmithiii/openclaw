@@ -6,7 +6,7 @@ CLI := openclaw-cli
 
 .PHONY: help build rebuild pnpm up down restart cli shell \
         logs logs-cli status inspect doctor \
-        workspace-sync clean-workspace images prune
+        workspace-sync clean clean-workspace images prune
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
@@ -24,19 +24,19 @@ rebuild: ## Build the Docker image (no cache)
 
 # — Container lifecycle —
 
-up: ## Start gateway + CLI in background
-	docker compose up -d
+up: ## Start the gateway in background
+	docker compose up -d $(GATEWAY)
 
 down: ## Stop and remove all containers
 	docker compose down
 
-restart: ## Recreate all containers (down + up)
-	docker compose down && docker compose up -d
+restart: ## Recreate the gateway (down + up)
+	docker compose down && docker compose up -d $(GATEWAY)
 
 # — Interactive —
 
-cli: ## Attach to the interactive CLI container
-	docker compose attach $(CLI)
+cli: ## Run an interactive CLI container (fresh, removed on exit)
+	docker compose run --rm $(CLI)
 
 shell: ## Open a bash shell in the gateway container
 	docker compose exec $(GATEWAY) bash
@@ -68,6 +68,10 @@ doctor: ## Run openclaw doctor inside the gateway
 workspace-sync: ## Ensure workspace dir exists
 	@mkdir -p $${OPENCLAW_WORKSPACE_DIR:?Set OPENCLAW_WORKSPACE_DIR}
 	@echo "Workspace dir: $$OPENCLAW_WORKSPACE_DIR"
+
+clean: ## Remove exited openclaw containers
+	@ids=$$(docker ps -aq -f name=openclaw-openclaw- -f status=exited); \
+	if [ -n "$$ids" ]; then docker rm $$ids; else echo "No exited openclaw containers."; fi
 
 clean-workspace: ## Wipe workspace contents
 	echo 'SAY THIS: rm -rf $${OPENCLAW_WORKSPACE_DIR:?Set OPENCLAW_WORKSPACE_DIR}/*'
