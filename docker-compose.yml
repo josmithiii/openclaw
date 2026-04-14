@@ -37,8 +37,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     dns:
-      - 192.168.1.254
-      - 8.8.8.8
+      - ${OPENCLAW_DNS:-8.8.8.8}
+      - 8.8.4.4
     ports:
       - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
       - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"

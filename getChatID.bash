@@ -10,7 +10,7 @@ if [ -z "$ID" ]; then
 fi
 
 if [ -z "$ID" ]; then
-  echo "*** No Telegram chat ID found — send a message to @JOSiiiBot first" >&2
+  echo "*** No Telegram chat ID found — send a message to @MyBot first" >&2
   exit 1
 fi
 
