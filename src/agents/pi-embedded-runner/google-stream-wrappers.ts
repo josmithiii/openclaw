@@ -130,6 +130,9 @@ export function sanitizeGoogleThinkingPayload(params: {
     isThinkingRequiredModel(params.modelId)
   ) {
     delete thinkingConfigObj.thinkingBudget;
+    if (Object.keys(thinkingConfigObj).length === 0) {
+      delete configObj.thinkingConfig;
+    }
     return;
   }
 

@@ -2,24 +2,34 @@ import { describe, expect, it } from "vitest";
 import { sanitizeGoogleThinkingPayload } from "./google-stream-wrappers.js";
 
 describe("sanitizeGoogleThinkingPayload — gemini-2.5-pro zero budget", () => {
-  it("removes thinkingBudget=0 for gemini-2.5-pro", () => {
-    const payload = {
+  it("removes thinkingBudget=0 for gemini-2.5-pro and drops the now-empty thinkingConfig", () => {
+    const payload: { config: { thinkingConfig?: unknown } } = {
       config: {
         thinkingConfig: { thinkingBudget: 0 },
       },
     };
     sanitizeGoogleThinkingPayload({ payload, modelId: "gemini-2.5-pro" });
-    expect(payload.config.thinkingConfig).not.toHaveProperty("thinkingBudget");
+    expect(payload.config).not.toHaveProperty("thinkingConfig");
+  });
+
+  it("preserves sibling thinkingConfig fields when removing thinkingBudget=0 for gemini-2.5-pro", () => {
+    const payload = {
+      config: {
+        thinkingConfig: { thinkingBudget: 0, includeThoughts: true },
+      },
+    };
+    sanitizeGoogleThinkingPayload({ payload, modelId: "gemini-2.5-pro" });
+    expect(payload.config.thinkingConfig).toEqual({ includeThoughts: true });
   });
 
   it("removes thinkingBudget=0 for gemini-2.5-pro with provider prefix", () => {
-    const payload = {
+    const payload: { config: { thinkingConfig?: unknown } } = {
       config: {
         thinkingConfig: { thinkingBudget: 0 },
       },
     };
     sanitizeGoogleThinkingPayload({ payload, modelId: "google/gemini-2.5-pro-preview" });
-    expect(payload.config.thinkingConfig).not.toHaveProperty("thinkingBudget");
+    expect(payload.config).not.toHaveProperty("thinkingConfig");
   });
 
   it("keeps thinkingBudget=0 for gemini-2.5-flash (not thinking-required)", () => {
