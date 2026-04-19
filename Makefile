@@ -1,11 +1,12 @@
 IMAGE := openclaw:local
 GATEWAY := openclaw-gateway
 CLI := openclaw-cli
+AGENT ?= main
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build rebuild pnpm up down restart cli shell \
-        logs logs-cli status inspect doctor \
+.PHONY: help build rebuild pnpm up down restart cli chat task shell \
+        logs logs-cli status inspect doctor lsws lsvs lsvsns sessions \
         workspace-sync clean clean-workspace images prune
 
 help: ## Show this help
@@ -58,10 +59,28 @@ inspect: ## Show container mounts
 		docker inspect openclaw-$$svc-1 --format '{{range .Mounts}}  {{.Source}} -> {{.Destination}}{{"\n"}}{{end}}' 2>/dev/null || echo "  (not running)"; \
 	done
 
+lsws: ## List workspace contents inside the gateway
+	docker compose exec $(GATEWAY) ls /home/node/.openclaw/workspace/
+
+lsvs: ## List visible services using lsof
+	lsof -iTCP -sTCP:LISTEN -nP | grep -E '127\.0\.0\.1|\*:'
+
+lsvsns: ## List visible services using netstat
+	netstat -anv -p tcp | grep LISTEN
+
 # — OpenClaw commands —
 
 doctor: ## Run openclaw doctor inside the gateway
 	docker compose exec $(GATEWAY) node dist/index.js doctor
+
+chat: ## Open interactive CLI container (alias for `cli`)
+	docker compose run --rm $(CLI)
+
+task: ## One-shot agent query (usage: make task Q="summarize this codebase")
+	docker compose exec $(GATEWAY) node dist/index.js agent -m "$(Q)"
+
+sessions: ## List recent session files for AGENT (default: main)
+	docker compose exec $(GATEWAY) ls -lt /home/node/.openclaw/agents/$(AGENT)/sessions/
 
 # — Workspace —
 
