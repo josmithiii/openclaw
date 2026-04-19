@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { sanitizeGoogleThinkingPayload } from "./google-stream-wrappers.js";
 
-describe("sanitizeGoogleThinkingPayload", () => {
-  it("removes thinkingBudget=0 for gemini-2.5-pro (thinking-required model)", () => {
+describe("sanitizeGoogleThinkingPayload — gemini-2.5-pro zero budget", () => {
+  it("removes thinkingBudget=0 for gemini-2.5-pro", () => {
     const payload = {
       config: {
         thinkingConfig: { thinkingBudget: 0 },
       },
     };
     sanitizeGoogleThinkingPayload({ payload, modelId: "gemini-2.5-pro" });
-    expect(payload.config.thinkingConfig).not.toHaveProperty("thinkingBudget");
+    expect(payload.config).not.toHaveProperty("thinkingConfig");
   });
 
   it("removes thinkingBudget=0 for gemini-2.5-pro with provider prefix", () => {
@@ -19,10 +19,32 @@ describe("sanitizeGoogleThinkingPayload", () => {
       },
     };
     sanitizeGoogleThinkingPayload({ payload, modelId: "google/gemini-2.5-pro-preview" });
-    expect(payload.config.thinkingConfig).not.toHaveProperty("thinkingBudget");
+    expect(payload.config).not.toHaveProperty("thinkingConfig");
   });
 
-  it("keeps thinkingBudget=0 for non-thinking-required models like gemini-2.5-flash", () => {
+  it("removes only thinkingBudget and preserves other thinkingConfig keys", () => {
+    const payload = {
+      config: {
+        thinkingConfig: { thinkingBudget: 0, includeThoughts: true },
+      },
+    };
+    sanitizeGoogleThinkingPayload({ payload, modelId: "gemini-2.5-pro" });
+    expect(payload.config.thinkingConfig).not.toHaveProperty("thinkingBudget");
+    expect(payload.config.thinkingConfig).toHaveProperty("includeThoughts", true);
+  });
+
+  it("removes thinkingBudget=0 from native Google generationConfig payloads", () => {
+    const payload = {
+      generationConfig: {
+        thinkingConfig: { thinkingBudget: 0, includeThoughts: true },
+      },
+    };
+    sanitizeGoogleThinkingPayload({ payload, modelId: "gemini-2.5-pro" });
+    expect(payload.generationConfig.thinkingConfig).not.toHaveProperty("thinkingBudget");
+    expect(payload.generationConfig.thinkingConfig).toHaveProperty("includeThoughts", true);
+  });
+
+  it("keeps thinkingBudget=0 for gemini-2.5-flash (not thinking-required)", () => {
     const payload = {
       config: {
         thinkingConfig: { thinkingBudget: 0 },
@@ -42,29 +64,53 @@ describe("sanitizeGoogleThinkingPayload", () => {
     expect(payload.config.thinkingConfig).toHaveProperty("thinkingBudget", 1000);
   });
 
-  it("removes negative thinkingBudget for any model", () => {
+  it("rewrites Gemini 3 Pro budgets to thinkingLevel", () => {
     const payload = {
       config: {
-        thinkingConfig: { thinkingBudget: -1 },
+        thinkingConfig: { thinkingBudget: 2048, includeThoughts: true },
       },
     };
-    sanitizeGoogleThinkingPayload({ payload, modelId: "gemini-3.1-pro" });
-    expect(payload.config.thinkingConfig).not.toHaveProperty("thinkingBudget");
+    sanitizeGoogleThinkingPayload({
+      payload,
+      modelId: "gemini-3.1-pro-preview",
+      thinkingLevel: "high",
+    });
+    expect(payload.config.thinkingConfig).toEqual({
+      includeThoughts: true,
+      thinkingLevel: "HIGH",
+    });
   });
 
-  it("sets thinkingLevel for gemini-3.1 models when thinking is enabled and budget was negative", () => {
+  it("rewrites Gemini 3 Flash latest disabled budgets to minimal thinkingLevel", () => {
+    const payload = {
+      generationConfig: {
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    };
+    sanitizeGoogleThinkingPayload({
+      payload,
+      modelId: "gemini-flash-latest",
+      thinkingLevel: "off",
+    });
+    expect(payload.generationConfig.thinkingConfig).toEqual({
+      thinkingLevel: "MINIMAL",
+    });
+  });
+
+  it("fills thinkingLevel for Gemini 3 Flash negative budgets", () => {
     const payload = {
       config: {
-        thinkingConfig: { thinkingBudget: -1 },
+        thinkingConfig: { thinkingBudget: -1, includeThoughts: true },
       },
     };
-    sanitizeGoogleThinkingPayload({ payload, modelId: "gemini-3.1-pro", thinkingLevel: "high" });
-    expect(payload.config.thinkingConfig).toEqual({ thinkingLevel: "HIGH" });
-  });
-
-  it("is a no-op when payload has no thinkingConfig", () => {
-    const payload = { config: {} };
-    sanitizeGoogleThinkingPayload({ payload, modelId: "gemini-2.5-pro" });
-    expect(payload.config).toEqual({});
+    sanitizeGoogleThinkingPayload({
+      payload,
+      modelId: "gemini-3-flash-preview",
+      thinkingLevel: "medium",
+    });
+    expect(payload.config.thinkingConfig).toEqual({
+      includeThoughts: true,
+      thinkingLevel: "MEDIUM",
+    });
   });
 });
