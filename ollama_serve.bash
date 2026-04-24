@@ -5,6 +5,26 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+ollama_up=0
+proxy_up=0
+lsof -iTCP:11434 -sTCP:LISTEN -n -P >/dev/null 2>&1 && ollama_up=1
+lsof -iTCP:11435 -sTCP:LISTEN -n -P >/dev/null 2>&1 && proxy_up=1
+
+if [ "$ollama_up" = 1 ] && [ "$proxy_up" = 1 ]; then
+    echo "*** ollama (:11434) and proxy (:11435) already running — nothing to do"
+    exit 0
+fi
+
+if [ "$ollama_up" = 1 ] && [ "$proxy_up" = 0 ]; then
+    echo "*** proxy down but ollama up — starting proxy only"
+    exec node "$SCRIPT_DIR/ollama_proxy.cjs" 11435 11434
+fi
+
+if [ "$ollama_up" = 0 ] && [ "$proxy_up" = 1 ]; then
+    echo "*** ollama down but proxy up on :11435 — kill the stale proxy first: make odown"
+    exit 1
+fi
+
 # Start the think:false proxy in the background
 node "$SCRIPT_DIR/ollama_proxy.cjs" 11435 11434 &
 PROXY_PID=$!

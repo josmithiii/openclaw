@@ -10,6 +10,7 @@ CLAUDE_MODEL ?= claude-cli/claude-opus-4-7
 BUILD_ARGS ?= --build-arg OPENCLAW_INSTALL_CLAUDE_CLI=1
 
 .PHONY: help build rebuild pnpm up down restart cli chat task shell tui \
+        oup odown ostatus \
         claude-setup claude-login claude-wire \
         logs logs-cli status inspect doctor lsws lsvs lsvsns sessions \
         workspace-sync clean clean-workspace images prune
@@ -32,6 +33,21 @@ rebuild: ## Build the Docker image (no cache)
 
 up: ## Start the gateway in background
 	docker compose up -d $(GATEWAY)
+
+oup: ## Start the ollama server (idempotent)
+	./ollama_serve.bash &
+
+odown: ## Stop the ollama server and think:false proxy
+	@pids=$$(lsof -t -iTCP:11434,11435 -sTCP:LISTEN 2>/dev/null); \
+	if [ -n "$$pids" ]; then kill $$pids && echo "ollama/proxy stopped (pids: $$pids)"; \
+	else echo "ollama not running"; fi
+
+ostatus: ## Show whether ollama and proxy are listening
+	@for port in 11434 11435; do \
+		if lsof -iTCP:$$port -sTCP:LISTEN -nP >/dev/null 2>&1; then \
+			echo ":$$port UP  ($$(lsof -iTCP:$$port -sTCP:LISTEN -nP | awk 'NR==2 {print $$1, "pid", $$2}'))"; \
+		else echo ":$$port DOWN"; fi; \
+	done
 
 down: ## Stop and remove all containers
 	docker compose down
@@ -102,7 +118,7 @@ lsvsns: ## List visible services using netstat
 
 # — OpenClaw commands —
 
-doctor: ## Run openclaw doctor inside the gateway
+doctor dr: ## Run openclaw doctor inside the gateway
 	docker compose exec $(GATEWAY) node dist/index.js doctor
 
 chat: ## Open interactive CLI container (alias for `cli`)
