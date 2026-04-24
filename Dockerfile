@@ -267,6 +267,16 @@ RUN --mount=type=cache,id=openclaw-bookworm-apt-cache,target=/var/cache/apt,shar
         docker-ce-cli docker-compose-plugin; \
     fi
 
+# Optionally install the Claude Code CLI for the `claude-cli` backend
+# (reuses your Anthropic Pro/Max plan via OAuth). Build with:
+#   docker build --build-arg OPENCLAW_INSTALL_CLAUDE_CLI=1 ...
+# Adds ~50MB. Mount a persistent ~/.claude into the container so OAuth
+# credentials survive container recreate.
+ARG OPENCLAW_INSTALL_CLAUDE_CLI=""
+RUN if [ -n "$OPENCLAW_INSTALL_CLAUDE_CLI" ]; then \
+      npm install -g @anthropic-ai/claude-code; \
+    fi
+
 # Expose the CLI binary without requiring npm global writes as non-root.
 RUN ln -sf /app/openclaw.mjs /usr/local/bin/openclaw \
  && chmod 755 /app/openclaw.mjs

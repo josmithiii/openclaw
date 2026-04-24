@@ -22,6 +22,11 @@ services:
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
       - ${HOME}/wiki:/home/node/wiki
       - openclaw-gopath:/home/node/go
+      ## Persistent Claude Code CLI credentials (for the `claude-cli` backend
+      ## that reuses your Anthropic Pro/Max plan via OAuth). Linux container
+      ## stores creds in a file; macOS host uses the Keychain, so do NOT mount
+      ## the host's ~/.claude directly. Default host dir: ~/.openclaw-claude
+      - ${OPENCLAW_CLAUDE_DIR:-${HOME}/.openclaw-claude}:/home/node/.claude
       ## Uncomment the lines below to enable sandbox isolation
       ## (agents.defaults.sandbox). Requires Docker CLI in the image
       ## (build with --build-arg OPENCLAW_INSTALL_DOCKER_CLI=1) or use

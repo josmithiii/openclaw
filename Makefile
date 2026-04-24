@@ -5,7 +5,12 @@ AGENT ?= main
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build rebuild pnpm up down restart cli chat task shell \
+CLAUDE_HOST_DIR ?= $(HOME)/.openclaw-claude
+CLAUDE_MODEL ?= claude-cli/claude-opus-4-7
+BUILD_ARGS ?= --build-arg OPENCLAW_INSTALL_CLAUDE_CLI=1
+
+.PHONY: help build rebuild pnpm up down restart cli chat task shell tui \
+        claude-setup claude-login claude-wire \
         logs logs-cli status inspect doctor lsws lsvs lsvsns sessions \
         workspace-sync clean clean-workspace images prune
 
@@ -17,11 +22,11 @@ help: ## Show this help
 pnpm: ## Compile TypeScript (pnpm build)
 	pnpm build
 
-build: ## Build the Docker image
-	docker build -t $(IMAGE) .
+build: ## Build the Docker image (BUILD_ARGS includes claude-cli by default)
+	docker build $(BUILD_ARGS) -t $(IMAGE) .
 
 rebuild: ## Build the Docker image (no cache)
-	docker build --no-cache -t $(IMAGE) .
+	docker build --no-cache $(BUILD_ARGS) -t $(IMAGE) .
 
 # — Container lifecycle —
 
@@ -41,6 +46,33 @@ cli: ## Run an interactive CLI container (fresh, removed on exit)
 
 shell: ## Open a bash shell in the gateway container
 	docker compose exec $(GATEWAY) bash
+
+tui: ## Start the openclaw CLI/TUI inside the running gateway container
+	docker compose exec $(GATEWAY) node dist/index.js tui
+
+# — Anthropic Pro/Max plan (claude-cli backend) —
+
+claude-setup: ## One-shot: ensure dirs/mount, OAuth login, wire to OpenClaw, set primary model
+	@mkdir -p $(CLAUDE_HOST_DIR)
+	@if ! docker compose exec $(GATEWAY) test -d /home/node/.claude 2>/dev/null; then \
+		echo ">> .claude mount not present in running container — run: make down && make up"; exit 1; \
+	fi
+	@if ! docker compose exec $(GATEWAY) sh -c 'command -v claude' >/dev/null 2>&1; then \
+		echo ">> claude CLI not in image — rebuild with: make build (or make rebuild)"; exit 1; \
+	fi
+	@echo ">> Step 1/3: Claude OAuth (paste the URL into your Mac browser, then paste the code back)"
+	$(MAKE) claude-login
+	@echo ">> Step 2/3: wire claude-cli into OpenClaw"
+	$(MAKE) claude-wire
+	@echo ">> Step 3/3: set primary model to $(CLAUDE_MODEL)"
+	docker compose exec $(GATEWAY) node dist/index.js config set agents.defaults.model.primary $(CLAUDE_MODEL)
+	@echo ">> Done. Run 'make tui' to use it."
+
+claude-login: ## Run `claude` in the gateway container so you can /login (interactive OAuth)
+	docker compose exec -it $(GATEWAY) claude
+
+claude-wire: ## Tell OpenClaw to use the host's logged-in Claude CLI (no API key needed)
+	docker compose exec $(GATEWAY) node dist/index.js models auth login --provider anthropic --method cli --set-default
 
 # — Observe —
 
