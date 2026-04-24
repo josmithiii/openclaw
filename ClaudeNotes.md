@@ -431,8 +431,8 @@ No -- the container supports both Claude paths side-by-side. They're independent
 │ anthropic/claude-opus-4-7 (etc) │ Direct Anthropic API │ Anthropic Console per-token │ ANTHROPIC_API_KEY in ~/.openclaw/.env │
 └──────────────────────────────────┴───────────────────────────────┴─────────────────────────────┴─────────────────────────────────────────────┘
 
-docker-compose.yml already forwards ANTHROPIC_API_KEY into the container, so if you drop a key into ~/.openclaw/.env, anthropic/_ models light up
-automatically alongside claude-cli/_.
+docker-compose.yml already forwards ANTHROPIC*API_KEY into the container, so if you drop a key into ~/.openclaw/.env, anthropic/* models light up
+automatically alongside claude-cli/\_.
 
 What make claude-setup actually did
 
@@ -452,6 +452,75 @@ Other non-Anthropic routes in the image
 
 Still fully available: OpenAI (openai/_, codex-cli/_), Google (google/_, google-gemini-cli/_), OpenRouter, Ollama (local), etc. claude-cli only
 affects how Anthropic/Claude is reached -- it doesn't replace other providers.
+
+---
+
+2026-04-24 10:08
+
+Exiting claude code from within the docker image:
+
+※ recap: You asked where your Ollama server is running. It's configured at http://192.168.5.2:11435 in /home/node/.openclaw/openclaw.json, using
+non-standard port 11435 on your LAN. No next action pending. (disable recaps in /config)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /q
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/exit (quit) Exit the CLI (in a background session: detach or stop)
+/btw Ask a quick side question without interrupting the main conversation
+/update-config Use this skill to configure the Claude Code harness via settings.json. Automated behaviors ("from now on when X",
+"each time X", "whenever X", "before/after X") require hooks configured in settings.json - the harness executes these...
+/simplify Review changed code for reuse, quality, and efficiency, then fix any issues found.
+
+Resume this session with:
+claude --resume 7a6ba9eb-540d-45bf-9f3b-9f87bfa51d8d
+
+> > Step 2/3: wire claude-cli into OpenClaw
+> > /Applications/Xcode.app/Contents/Developer/usr/bin/make claude-wire
+> > docker compose exec openclaw-gateway node dist/index.js models auth login --provider anthropic --method cli --set-default
+
+🦞 OpenClaw 2026.4.24 (unknown) -- Your terminal just grew claws--type something and let the bot pinch the busywork.
+
+Config overwrite: /home/node/.openclaw/openclaw.json (sha256 2c5145e4c77d61a0944ff0345dc6664d6015a7729be516986e64c452c2d92b9d -> 9fe06702cc8d125ee96427c55a486cc67a4cee4e02425e47d37e187f8c3ae976, backup=/home/node/.openclaw/openclaw.json.bak)
+Updated ~/.openclaw/openclaw.json
+Auth profile: anthropic:claude-cli (claude-cli/oauth)
+Default model set to claude-cli/claude-haiku-4-5
+│
+◇ Provider notes ────────────────────────────────────────────────────────────────────────╮
+│ │
+│ Claude CLI auth detected; switched Anthropic model selection to the local Claude CLI │
+│ backend. │
+│ Existing Anthropic auth profiles are kept for rollback. │
+│ Migrated allowlist entries: claude-cli/claude-opus-4-6, claude-cli/claude-sonnet-4-6, │
+│ claude-cli/claude-haiku-4-5. │
+│ │
+├─────────────────────────────────────────────────────────────────────────────────────────╯
+
+> > Step 3/3: set primary model to claude-cli/claude-opus-4-7
+> > docker compose exec openclaw-gateway node dist/index.js config set agents.defaults.model.primary claude-cli/claude-opus-4-7
+> > make: \*\*\* [claude-setup] Error 137
+
+---
+
+> Why does ollama need a proxy?
+
+⏺ One reason, and it's a workaround for an upstream bug. Line 29 is the whole point:
+
+parsed.think = false;
+
+Gemma 4 has hidden chain-of-thought on by default -- simple replies would take 60-70s of reasoning-token churn before the first visible character.
+Ollama's /api/chat accepts a top-level think: false to suppress that.
+
+Per your 20-day-old ollama-gemma4-setup memory: OpenClaw v2026.4.1's Ollama plugin didn't send think: false even with thinkingDefault: "off" and
+reasoning: false in the config. So this proxy intercepts every chat request and injects the flag. Without it → 60-70s per reply. With it → 1-3s.
+
+Everything else the proxy does is either pass-through or debug logging (timestamps, message sizes, dumping the system prompt to
+/tmp/ollama-system-prompt.txt).
+
+Your config now reports lastTouchedVersion: 2026.4.24 -- so you're 23 minor versions past the one that needed the workaround. The upstream bug might be
+fixed. Want me to:
+
+1. Check the openclaw source/changelog for whether the ollama plugin now sends think: false, and
+2. If so, simplify the setup: point baseUrl straight at :11434 and retire the proxy (and ollama_proxy.cjs)?
 
 ---
 
