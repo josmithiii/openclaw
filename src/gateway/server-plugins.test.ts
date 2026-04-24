@@ -88,6 +88,8 @@ const createRegistry = (diagnostics: PluginDiagnostic[]): PluginRegistry => ({
   webFetchProviders: [],
   webSearchProviders: [],
   memoryEmbeddingProviders: [],
+  embeddedExtensionFactories: [],
+  codexAppServerExtensionFactories: [],
   textTransforms: [],
   agentHarnesses: [],
   gatewayHandlers: {},
@@ -200,8 +202,7 @@ async function createSubagentRuntime(
 
 async function reloadServerPluginsModule(): Promise<ServerPluginsModule> {
   vi.resetModules();
-  await loadTestModules();
-  return serverPluginsModule;
+  return await import("./server-plugins.js");
 }
 
 function loadGatewayPluginsForTest(
@@ -572,6 +573,28 @@ describe("loadGatewayPlugins", () => {
       sessionKey: "s-idem-forward",
       message: "hello",
       idempotencyKey: "caller-provided-key",
+    });
+  });
+
+  test("forwards lightContext as lightweight bootstrap context on subagent run", async () => {
+    const serverPlugins = serverPluginsModule;
+    const runtime = await createSubagentRuntime(serverPlugins);
+    serverPlugins.setFallbackGatewayContext(createTestContext("light-context-forward"));
+
+    await runtime.run({
+      sessionKey: "s-light-context",
+      message: "hello",
+      lightContext: true,
+      lane: "dreaming-narrative:s-light-context",
+      deliver: false,
+    });
+
+    expect(getLastDispatchedParams()).toMatchObject({
+      sessionKey: "s-light-context",
+      message: "hello",
+      lane: "dreaming-narrative:s-light-context",
+      bootstrapContextMode: "lightweight",
+      deliver: false,
     });
   });
 
