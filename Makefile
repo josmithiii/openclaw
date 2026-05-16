@@ -16,7 +16,7 @@ BUILD_ARGS ?= --build-arg OPENCLAW_INSTALL_CLAUDE_CLI=1
         workspace-sync clean clean-workspace images prune
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
 
 # — Build —
 
@@ -142,6 +142,30 @@ clean: ## Remove exited openclaw containers
 
 clean-workspace: ## Wipe workspace contents
 	echo 'SAY THIS: rm -rf $${OPENCLAW_WORKSPACE_DIR:?Set OPENCLAW_WORKSPACE_DIR}/*'
+
+# — MLX (host-side; shared wrapper at ~/bin/mlx_serve) —
+
+mup: ## Start MLX (default: Gemma 4 31B 4-bit; idempotent)
+	$$HOME/bin/mlx_serve &
+
+mup3: ## Swap MLX to Gemma 3 27B 4-bit
+	@$(MAKE) mdown && $$HOME/bin/mlx_serve mlx-community/gemma-3-27b-it-4bit &
+
+mup3s: ## Swap MLX to Gemma 3 12B 4-bit (small/fast)
+	@$(MAKE) mdown && $$HOME/bin/mlx_serve mlx-community/gemma-3-12b-it-4bit &
+
+mup4f: ## Swap MLX to Gemma 4 31B bf16 (full precision, ~60 GB)
+	@$(MAKE) mdown && $$HOME/bin/mlx_serve mlx-community/gemma-4-31b-it-bf16 &
+
+mdown: ## Stop the host MLX server
+	@pids=$$(lsof -t -iTCP:8765 -sTCP:LISTEN 2>/dev/null); \
+	if [ -n "$$pids" ]; then kill $$pids && echo "mlx stopped (pids: $$pids)"; \
+	else echo "mlx not running"; fi
+
+mstatus: ## Show whether MLX server is listening
+	@if lsof -iTCP:8765 -sTCP:LISTEN -nP >/dev/null 2>&1; then \
+		echo ":8765 UP  ($$(lsof -iTCP:8765 -sTCP:LISTEN -nP | awk 'NR==2 {print $$1, "pid", $$2}'))"; \
+	else echo ":8765 DOWN"; fi
 
 # — Docker housekeeping —
 
